@@ -32,6 +32,9 @@ class RippleDashboard:
         # Initialize layout and callbacks
         self.setup_layout()
         self.setup_callbacks()
+        
+        # Load tickers immediately for dropdown
+        self._load_initial_tickers()
     
     def setup_layout(self):
         """Setup the enhanced dashboard layout."""
@@ -186,7 +189,7 @@ class RippleDashboard:
                         html.Label("Seed Ticker:", className="control-label"),
                         dcc.Dropdown(
                             id='seed-ticker-dropdown',
-                            options=[],
+                            options=self._get_initial_dropdown_options(),
                             value=None,
                             placeholder="🔍 Search and select seed ticker...",
                             searchable=True,
@@ -290,67 +293,30 @@ class RippleDashboard:
     def _setup_simulation_callbacks(self):
         """Setup simulation-specific callbacks."""
         @self.app.callback(
-            [Output('seed-ticker-dropdown', 'options'),
-             Output('seed-ticker-dropdown', 'value')],
-            [Input('interval-component', 'n_intervals'),
-             Input('banking-crisis-btn', 'n_clicks'),
+            Output('seed-ticker-dropdown', 'value'),
+            [Input('banking-crisis-btn', 'n_clicks'),
              Input('payment-shock-btn', 'n_clicks'),
              Input('tech-shock-btn', 'n_clicks')],
-            prevent_initial_call=False
+            prevent_initial_call=True
         )
-        def update_ticker_options_and_scenarios(n_intervals, banking_clicks, payment_clicks, tech_clicks):
-            """Update ticker options and handle scenario button clicks."""
-            try:
-                # Load tickers directly in this callback to ensure they're available
-                query = """
-                SELECT DISTINCT ticker
-                FROM prices 
-                WHERE ticker IS NOT NULL 
-                ORDER BY ticker
-                """
-                df = pg_manager.read_dataframe(query)
+        def handle_scenario_buttons(banking_clicks, payment_clicks, tech_clicks):
+            """Handle scenario button clicks."""
+            ctx = dash.callback_context
+            if not ctx.triggered:
+                return no_update
                 
-                # Create dropdown options
-                options = []
-                if not df.empty:
-                    for _, row in df.iterrows():
-                        ticker = row['ticker']
-                        # Categorize tickers for better labels
-                        if ticker in ['JPM', 'BAC', 'WFC', 'C', 'GS', 'MS']:
-                            category = "Major Bank"
-                        elif ticker in ['V', 'MA', 'AXP']:
-                            category = "Payment"
-                        elif ticker in ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA']:
-                            category = "Technology"
-                        elif ticker in ['AIG', 'MET', 'PRU', 'AFL']:
-                            category = "Insurance"
-                        else:
-                            category = "Financial"
-                        
-                        label = f"{ticker} ({category})"
-                        options.append({'label': label, 'value': ticker})
-                
-                logger.info(f"Direct query: Created {len(options)} dropdown options")
-                if len(options) > 0:
-                    logger.info(f"Sample options: {options[:3]}")
-                
-                # Handle scenario button clicks
-                ctx = dash.callback_context
-                if ctx.triggered:
-                    button_id = ctx.triggered[0]['prop_id'].split('.')[0]
-                    if button_id == 'banking-crisis-btn' and banking_clicks:
-                        return options, 'JPM'
-                    elif button_id == 'payment-shock-btn' and payment_clicks:
-                        return options, 'V'
-                    elif button_id == 'tech-shock-btn' and tech_clicks:
-                        return options, 'AAPL'
-                
-                # Return options with no pre-selected value initially
-                return options, None
-                
-            except Exception as e:
-                logger.error(f"Error in direct ticker loading: {e}")
-                return [], None
+            button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+            if button_id == 'banking-crisis-btn' and banking_clicks:
+                logger.info("Banking crisis scenario selected: JPM")
+                return 'JPM'
+            elif button_id == 'payment-shock-btn' and payment_clicks:
+                logger.info("Payment shock scenario selected: V")
+                return 'V'
+            elif button_id == 'tech-shock-btn' and tech_clicks:
+                logger.info("Tech disruption scenario selected: AAPL")
+                return 'AAPL'
+            
+            return no_update
         
         @self.app.callback(
             [Output('simulation-results-store', 'data'),
@@ -980,6 +946,58 @@ Default Damping: 0.85
         )
         
         return fig
+    
+    def _load_initial_tickers(self):
+        """Load initial ticker options for dropdown."""
+        try:
+            query = "SELECT DISTINCT ticker FROM prices ORDER BY ticker"
+            df = pg_manager.read_dataframe(query)
+            logger.info(f"_load_initial_tickers: Found {len(df)} tickers")
+            return df['ticker'].tolist() if not df.empty else []
+        except Exception as e:
+            logger.error(f"Error loading initial tickers: {e}")
+            return []
+    
+    def _get_initial_dropdown_options(self):
+        """Get initial dropdown options for the layout."""
+        try:
+            query = "SELECT DISTINCT ticker FROM prices ORDER BY ticker"
+            df = pg_manager.read_dataframe(query)
+            
+            options = []
+            if not df.empty:
+                for _, row in df.iterrows():
+                    ticker = row['ticker']
+                    # Categorize tickers for better labels
+                    if ticker in ['JPM', 'BAC', 'WFC', 'C', 'GS', 'MS']:
+                        category = "Major Bank"
+                    elif ticker in ['V', 'MA', 'AXP']:
+                        category = "Payment"
+                    elif ticker in ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA']:
+                        category = "Technology"
+                    elif ticker in ['AIG', 'MET', 'PRU', 'AFL']:
+                        category = "Insurance"
+                    else:
+                        category = "Financial"
+                    
+                    label = f"{ticker} ({category})"
+                    options.append({'label': label, 'value': ticker})
+            
+            logger.info(f"Initial dropdown setup: Created {len(options)} options")
+            return options
+            
+        except Exception as e:
+            logger.error(f"Error creating initial dropdown options: {e}")
+            # Fallback with hardcoded popular tickers
+            fallback_options = [
+                {'label': 'AAPL (Technology)', 'value': 'AAPL'},
+                {'label': 'JPM (Major Bank)', 'value': 'JPM'},
+                {'label': 'V (Payment)', 'value': 'V'},
+                {'label': 'MSFT (Technology)', 'value': 'MSFT'},
+                {'label': 'BAC (Major Bank)', 'value': 'BAC'}
+            ]
+            logger.info(f"Using fallback options: {len(fallback_options)} tickers")
+            return fallback_options
     
     def run_server(self, debug: bool = False, port: int = 8050):
         """Start the enhanced dashboard server"""

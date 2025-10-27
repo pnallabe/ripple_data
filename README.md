@@ -86,10 +86,10 @@ This platform implements a multi-layer dependency network for stocks with:
 ### Enhanced Dashboard Mode
 Launch the comprehensive interactive financial services dashboard:
 ```bash
-python main.py --mode dashboard --port 8051
+python main.py --mode dashboard --port 8053
 ```
 
-Navigate to `http://localhost:8051` to access the platform.
+Navigate to `http://localhost:8053` to access the platform.
 
 **🎛️ Dashboard Features:**
 - **Real-time Network Visualization**: Interactive 45-stock dependency network with impact propagation

@@ -1,7 +1,7 @@
 """Enhanced Dash web application for comprehensive financial services ripple effect visualization."""
 
 import dash
-from dash import dcc, html, Input, Output, State, callback, dash_table
+from dash import dcc, html, Input, Output, State, callback, dash_table, no_update
 from dash.dash_table import FormatTemplate
 import plotly.graph_objects as go
 import plotly.express as px
@@ -139,28 +139,38 @@ class RippleDashboard:
         def load_ticker_list(n_intervals):
             """Load available tickers from database."""
             try:
-                # Query available tickers with additional info
+                # Simplified query that works with our current schema
                 query = """
-                SELECT DISTINCT p.ticker, 
-                       COALESCE(c.name, p.ticker) as name,
-                       COALESCE(c.sector, 'Unknown') as sector,
-                       COUNT(p.*) as record_count,
-                       MAX(p.trade_date) as latest_date,
-                       AVG(p.close) as avg_price
-                FROM prices p
-                LEFT JOIN companies c ON p.ticker = c.ticker
-                WHERE p.ticker IS NOT NULL 
-                GROUP BY p.ticker, c.name, c.sector
-                ORDER BY p.ticker
+                SELECT DISTINCT ticker,
+                       ticker as name,
+                       'Financial Services' as sector,
+                       COUNT(*) as record_count,
+                       MAX(trade_date) as latest_date,
+                       ROUND(AVG(close), 2) as avg_price
+                FROM prices 
+                WHERE ticker IS NOT NULL 
+                GROUP BY ticker
+                ORDER BY ticker
                 """
                 tickers_df = pg_manager.read_dataframe(query)
                 tickers_data = tickers_df.to_dict('records') if not tickers_df.empty else []
                 
+                logger.info(f"Loaded {len(tickers_data)} tickers for dashboard")
                 return [tickers_data]
                 
             except Exception as e:
                 logger.error(f"Error loading tickers: {e}")
-                return [[]]
+                # Fallback: try a simpler query
+                try:
+                    simple_query = "SELECT DISTINCT ticker FROM prices ORDER BY ticker"
+                    simple_df = pg_manager.read_dataframe(simple_query)
+                    simple_data = [{'ticker': row['ticker'], 'name': row['ticker'], 'sector': 'Unknown'} 
+                                 for _, row in simple_df.iterrows()]
+                    logger.info(f"Fallback: Loaded {len(simple_data)} tickers")
+                    return [simple_data]
+                except Exception as e2:
+                    logger.error(f"Fallback query also failed: {e2}")
+                    return [[]]
         
     def _create_dashboard_content(self):
         """Create main dashboard content with simulation controls."""
@@ -273,8 +283,7 @@ class RippleDashboard:
                 
             ], className="dashboard-layout"),
             
-            # Add callback for scenario buttons and simulation
-            self._setup_simulation_callbacks()
+
             
         ])
     
@@ -283,21 +292,47 @@ class RippleDashboard:
         @self.app.callback(
             [Output('seed-ticker-dropdown', 'options'),
              Output('seed-ticker-dropdown', 'value')],
-            [Input('ticker-list-store', 'data'),
+            [Input('interval-component', 'n_intervals'),
              Input('banking-crisis-btn', 'n_clicks'),
              Input('payment-shock-btn', 'n_clicks'),
-             Input('tech-shock-btn', 'n_clicks')]
+             Input('tech-shock-btn', 'n_clicks')],
+            prevent_initial_call=False
         )
-        def update_ticker_options_and_scenarios(tickers_data, banking_clicks, payment_clicks, tech_clicks):
+        def update_ticker_options_and_scenarios(n_intervals, banking_clicks, payment_clicks, tech_clicks):
             """Update ticker options and handle scenario button clicks."""
             try:
+                # Load tickers directly in this callback to ensure they're available
+                query = """
+                SELECT DISTINCT ticker
+                FROM prices 
+                WHERE ticker IS NOT NULL 
+                ORDER BY ticker
+                """
+                df = pg_manager.read_dataframe(query)
+                
                 # Create dropdown options
                 options = []
-                if tickers_data:
-                    for ticker in tickers_data:
-                        sector = ticker.get('sector', 'Unknown')
-                        label = f"{ticker['ticker']} - {ticker.get('name', ticker['ticker'])} ({sector})"
-                        options.append({'label': label, 'value': ticker['ticker']})
+                if not df.empty:
+                    for _, row in df.iterrows():
+                        ticker = row['ticker']
+                        # Categorize tickers for better labels
+                        if ticker in ['JPM', 'BAC', 'WFC', 'C', 'GS', 'MS']:
+                            category = "Major Bank"
+                        elif ticker in ['V', 'MA', 'AXP']:
+                            category = "Payment"
+                        elif ticker in ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA']:
+                            category = "Technology"
+                        elif ticker in ['AIG', 'MET', 'PRU', 'AFL']:
+                            category = "Insurance"
+                        else:
+                            category = "Financial"
+                        
+                        label = f"{ticker} ({category})"
+                        options.append({'label': label, 'value': ticker})
+                
+                logger.info(f"Direct query: Created {len(options)} dropdown options")
+                if len(options) > 0:
+                    logger.info(f"Sample options: {options[:3]}")
                 
                 # Handle scenario button clicks
                 ctx = dash.callback_context
@@ -310,10 +345,11 @@ class RippleDashboard:
                     elif button_id == 'tech-shock-btn' and tech_clicks:
                         return options, 'AAPL'
                 
+                # Return options with no pre-selected value initially
                 return options, None
                 
             except Exception as e:
-                logger.error(f"Error updating ticker options: {e}")
+                logger.error(f"Error in direct ticker loading: {e}")
                 return [], None
         
         @self.app.callback(

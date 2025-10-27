@@ -1,7 +1,7 @@
 """Enhanced Dash web application for comprehensive financial services ripple effect visualization."""
 
 import dash
-from dash import dcc, html, Input, Output, State, callback, dash_table, no_update
+from dash import dcc, html, Input, Output, State, callback, dash_table, no_update, callback_context
 from dash.dash_table import FormatTemplate
 import plotly.graph_objects as go
 import plotly.express as px
@@ -19,6 +19,15 @@ from config.settings import config
 
 logger = logging.getLogger(__name__)
 
+# Import simulation modules
+try:
+    from src.simulation import SimulationEngine, ScenarioManager, ResultsAnalyzer, SimulationVisualizer
+    from src.simulation.engine import SimulationConfig, SimulationType
+    SIMULATION_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"Simulation modules not available: {e}")
+    SIMULATION_AVAILABLE = False
+
 
 class RippleDashboard:
     """Main dashboard application for ripple effect analysis."""
@@ -28,6 +37,18 @@ class RippleDashboard:
         self.propagator = RipplePropagator()
         self.graph_builder = GraphBuilder()
         self.correlation_analyzer = CorrelationAnalyzer()
+        
+        # Initialize simulation components if available
+        if SIMULATION_AVAILABLE:
+            self.simulation_engine = SimulationEngine()
+            self.scenario_manager = ScenarioManager()
+            self.results_analyzer = ResultsAnalyzer()
+            self.simulation_visualizer = SimulationVisualizer()
+        else:
+            self.simulation_engine = None
+            self.scenario_manager = None
+            self.results_analyzer = None
+            self.simulation_visualizer = None
         
         # Initialize layout and callbacks
         self.setup_layout()
@@ -87,6 +108,7 @@ class RippleDashboard:
             html.Div([
                 dcc.Tabs(id="main-tabs", value='dashboard', className="main-tabs", children=[
                     dcc.Tab(label='🎛️ Dashboard', value='dashboard', className="main-tab"),
+                    dcc.Tab(label='🧪 Simulation', value='simulation', className="main-tab", disabled=not SIMULATION_AVAILABLE),
                     dcc.Tab(label='🔗 Correlations', value='correlations', className="main-tab"),
                     dcc.Tab(label='🏦 Sectors', value='sectors', className="main-tab"),
                     dcc.Tab(label='📊 Analytics', value='analytics', className="main-tab"),
@@ -124,6 +146,8 @@ class RippleDashboard:
             """Render main content based on active tab."""
             if active_tab == 'dashboard':
                 return self._create_dashboard_content()
+            elif active_tab == 'simulation':
+                return self._create_simulation_content()
             elif active_tab == 'correlations':
                 return self._create_correlations_content()
             elif active_tab == 'sectors':
@@ -174,6 +198,10 @@ class RippleDashboard:
                 except Exception as e2:
                     logger.error(f"Fallback query also failed: {e2}")
                     return [[]]
+        
+        # Setup advanced simulation callbacks if available
+        if SIMULATION_AVAILABLE:
+            self._setup_advanced_simulation_callbacks()
         
     def _create_dashboard_content(self):
         """Create main dashboard content with simulation controls."""
@@ -400,6 +428,242 @@ class RippleDashboard:
             
             return html.Div("Tab content not implemented")
     
+    def _setup_advanced_simulation_callbacks(self):
+        """Setup advanced simulation callbacks."""
+        
+        # Simulation type dependent controls
+        @self.app.callback(
+            Output('monte-carlo-controls', 'style'),
+            [Input('sim-type-dropdown', 'value')]
+        )
+        def toggle_monte_carlo_controls(sim_type):
+            """Show/hide Monte Carlo specific controls."""
+            if sim_type == 'monte_carlo':
+                return {"display": "block"}
+            return {"display": "none"}
+        
+        # Run advanced simulation
+        @self.app.callback(
+            [Output('advanced-sim-results-store', 'data'),
+             Output('sim-status', 'children'),
+             Output('sim-progress', 'children')],
+            [Input('run-advanced-sim-btn', 'n_clicks')],
+            [State('sim-type-dropdown', 'value'),
+             State('sim-seed-ticker-dropdown', 'value'),
+             State('sim-shock-magnitude-slider', 'value'),
+             State('sim-damping-factor-slider', 'value'),
+             State('sim-monte-carlo-runs', 'value')]
+        )
+        def run_advanced_simulation(n_clicks, sim_type, seed_ticker, shock_magnitude, 
+                                   damping_factor, monte_carlo_runs):
+            """Run advanced simulation with selected parameters."""
+            if n_clicks == 0 or not seed_ticker or not sim_type:
+                return {}, "", ""
+            
+            try:
+                # Show loading status
+                status = html.Div([
+                    html.I(className="fas fa-spinner fa-spin"),
+                    html.Span(f" Running {sim_type.replace('_', ' ').title()} simulation...", 
+                             style={"margin-left": "10px"})
+                ], className="status-loading")
+                
+                progress = html.Div([
+                    html.Div(className="progress-bar", style={"width": "50%"})
+                ], className="progress-container")
+                
+                # Create simulation configuration
+                sim_config = SimulationConfig(
+                    simulation_type=SimulationType(sim_type),
+                    seed_ticker=seed_ticker,
+                    shock_magnitude=shock_magnitude / 100.0,
+                    damping_factor=damping_factor,
+                    monte_carlo_runs=monte_carlo_runs if sim_type == 'monte_carlo' else 1000
+                )
+                
+                # Run simulation
+                results = self.simulation_engine.run_simulation(sim_config)
+                
+                if results.results_df.empty:
+                    return {}, html.Div("⚠️ Simulation produced no results", className="status-error"), ""
+                
+                # Convert results to JSON serializable format
+                results_dict = {
+                    'simulation_id': results.simulation_id,
+                    'simulation_type': results.config.simulation_type.value,
+                    'results_df': results.results_df.to_dict('records'),
+                    'statistics': results.statistics,
+                    'execution_time': results.execution_time,
+                    'convergence_info': results.convergence_info
+                }
+                
+                success_status = html.Div([
+                    html.I(className="fas fa-check-circle"),
+                    html.Span(f" ✅ {sim_type.replace('_', ' ').title()} completed - "
+                             f"{len(results.results_df)} stocks analyzed in {results.execution_time:.2f}s", 
+                             style={"margin-left": "10px"})
+                ], className="status-success")
+                
+                final_progress = html.Div([
+                    html.Div(className="progress-bar", style={"width": "100%"})
+                ], className="progress-container")
+                
+                return results_dict, success_status, final_progress
+                
+            except Exception as e:
+                logger.error(f"Advanced simulation error: {e}")
+                error_status = html.Div([
+                    html.I(className="fas fa-exclamation-triangle"),
+                    html.Span(f" ❌ Error: {str(e)}", style={"margin-left": "10px"})
+                ], className="status-error")
+                return {}, error_status, ""
+        
+        # Update simulation results display
+        @self.app.callback(
+            Output('sim-results-content', 'children'),
+            [Input('sim-results-tabs', 'value'),
+             Input('advanced-sim-results-store', 'data')]
+        )
+        def update_simulation_results(active_tab, sim_results):
+            """Update simulation results visualization."""
+            if not sim_results or not sim_results.get('results_df'):
+                return html.Div([
+                    html.Div([
+                        html.I(className="fas fa-flask", style={"font-size": "3rem", "color": "#6c757d"}),
+                        html.H4("Ready for Advanced Simulation", style={"margin-top": "1rem", "color": "#6c757d"}),
+                        html.P("Configure parameters and run a simulation to see detailed results"),
+                        html.P("🧪 Try different simulation types for comprehensive analysis!")
+                    ], style={"text-align": "center", "margin-top": "3rem"})
+                ], className="no-data-message")
+            
+            try:
+                # Reconstruct results object for visualization
+                from src.simulation.engine import SimulationResults
+                
+                results_df = pd.DataFrame(sim_results['results_df'])
+                
+                # Create visualization based on active tab
+                if active_tab == 'impact-waterfall':
+                    fig = self.simulation_visualizer.create_impact_waterfall(
+                        type('MockResults', (), {
+                            'results_df': results_df,
+                            'config': type('MockConfig', (), {
+                                'seed_ticker': sim_results.get('statistics', {}).get('seed_ticker', 'Unknown')
+                            })()
+                        })()
+                    )
+                    return dcc.Graph(figure=fig, className="sim-chart")
+                
+                elif active_tab == 'distribution':
+                    fig = self.simulation_visualizer.create_impact_distribution(
+                        type('MockResults', (), {'results_df': results_df})()
+                    )
+                    return dcc.Graph(figure=fig, className="sim-chart")
+                
+                elif active_tab == 'heatmap':
+                    fig = self.simulation_visualizer.create_network_heatmap(
+                        type('MockResults', (), {'results_df': results_df})()
+                    )
+                    return dcc.Graph(figure=fig, className="sim-chart")
+                
+                elif active_tab == 'sector-analysis':
+                    fig = self.simulation_visualizer.create_sector_analysis(
+                        type('MockResults', (), {'results_df': results_df})()
+                    )
+                    return dcc.Graph(figure=fig, className="sim-chart")
+                
+                elif active_tab == 'monte-carlo':
+                    if sim_results.get('simulation_type') == 'monte_carlo':
+                        fig = self.simulation_visualizer.create_monte_carlo_confidence(
+                            type('MockResults', (), {
+                                'results_df': results_df,
+                                'config': type('MockConfig', (), {
+                                    'simulation_type': SimulationType.MONTE_CARLO
+                                })()
+                            })()
+                        )
+                        return dcc.Graph(figure=fig, className="sim-chart")
+                    else:
+                        return html.Div([
+                            html.I(className="fas fa-info-circle"),
+                            html.Span(" Monte Carlo visualization only available for Monte Carlo simulations")
+                        ], className="info-message")
+                
+                elif active_tab == 'risk-metrics':
+                    # Create risk metrics summary
+                    stats = sim_results.get('statistics', {})
+                    
+                    return html.Div([
+                        html.Div([
+                            html.H4("📊 Simulation Statistics"),
+                            html.Table([
+                                html.Tr([html.Td("Execution Time:"), html.Td(f"{stats.get('total_execution_time', 0):.2f}s")]),
+                                html.Tr([html.Td("Stocks Analyzed:"), html.Td(str(stats.get('total_stocks_analyzed', 0)))]),
+                                html.Tr([html.Td("Mean Impact:"), html.Td(f"{stats.get('mean_impact', 0):.2%}")]),
+                                html.Tr([html.Td("Max Impact:"), html.Td(f"{stats.get('max_impact', 0):.2%}")]),
+                                html.Tr([html.Td("Significant Impacts:"), html.Td(str(stats.get('stocks_with_significant_impact', 0)))])
+                            ], className="stats-table")
+                        ], className="stats-panel"),
+                        
+                        html.Div([
+                            html.H4("🎯 Risk Assessment"),
+                            html.Table([
+                                html.Tr([html.Td("Impact Concentration:"), html.Td(f"{stats.get('impact_concentration', 0):.3f}")]),
+                                html.Tr([html.Td("Impact Dispersion:"), html.Td(f"{stats.get('impact_dispersion', 0):.3f}")]),
+                                html.Tr([html.Td("95th Percentile:"), html.Td(f"{stats.get('impact_percentile_95', 0):.2%}")]),
+                                html.Tr([html.Td("5th Percentile:"), html.Td(f"{stats.get('impact_percentile_5', 0):.2%}")])
+                            ], className="stats-table")
+                        ], className="stats-panel")
+                    ], className="risk-metrics-display")
+                
+                return html.Div("Visualization not implemented for this tab")
+                
+            except Exception as e:
+                logger.error(f"Error updating simulation results: {e}")
+                return html.Div([
+                    html.I(className="fas fa-exclamation-triangle"),
+                    html.Span(f" Error displaying results: {str(e)}")
+                ], className="error-message")
+        
+        # Scenario buttons callback (single callback for all buttons)
+        @self.app.callback(
+            [Output('sim-type-dropdown', 'value'),
+             Output('sim-seed-ticker-dropdown', 'value'),
+             Output('sim-shock-magnitude-slider', 'value'),
+             Output('sim-damping-factor-slider', 'value')],
+            [Input('scenario-bank-crisis', 'n_clicks'),
+             Input('scenario-tech-shock', 'n_clicks'),
+             Input('scenario-insurance', 'n_clicks'),
+             Input('scenario-payment', 'n_clicks'),
+             Input('scenario-correction', 'n_clicks'),
+             Input('scenario-systemic', 'n_clicks')],
+            prevent_initial_call=True
+        )
+        def load_predefined_scenario(bank_clicks, tech_clicks, insurance_clicks, 
+                                   payment_clicks, correction_clicks, systemic_clicks):
+            """Load predefined scenario configuration."""
+            ctx = callback_context
+            if not ctx.triggered:
+                return no_update, no_update, no_update, no_update
+            
+            button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+            
+            # Define scenario configurations
+            scenarios = {
+                'scenario-bank-crisis': ('stress_test', 'JPM', -15, 0.80),
+                'scenario-tech-shock': ('matrix_propagation', 'MSFT', -12, 0.75),
+                'scenario-insurance': ('stress_test', 'AIG', -18, 0.78),
+                'scenario-payment': ('matrix_propagation', 'V', -14, 0.70),
+                'scenario-correction': ('monte_carlo', 'SPY', -8, 0.85),
+                'scenario-systemic': ('systemic_risk', 'JPM', -5, 0.85)
+            }
+            
+            if button_id in scenarios:
+                sim_type, seed_ticker, shock_mag, damping = scenarios[button_id]
+                return sim_type, seed_ticker, shock_mag, damping
+            
+            return no_update, no_update, no_update, no_update
+    
     def _create_correlations_content(self):
         """Create correlations analysis content."""
         return html.Div([
@@ -437,6 +701,176 @@ class RippleDashboard:
             
             # Volatility analysis
             html.Div(id="volatility-analysis")
+        ])
+    
+    def _create_simulation_content(self):
+        """Create advanced simulation content."""
+        if not SIMULATION_AVAILABLE:
+            return html.Div([
+                html.H2("🧪 Advanced Simulation"),
+                html.Div([
+                    html.I(className="fas fa-exclamation-triangle", style={"font-size": "3rem", "color": "#ffc107"}),
+                    html.H4("Simulation Module Not Available", style={"margin-top": "1rem", "color": "#6c757d"}),
+                    html.P("The advanced simulation module is not installed or configured."),
+                    html.P("Please check the installation and try again.")
+                ], style={"text-align": "center", "margin-top": "3rem"})
+            ])
+        
+        return html.Div([
+            html.H2("🧪 Advanced Simulation Laboratory"),
+            html.P("Comprehensive stress testing and scenario analysis with Monte Carlo simulations"),
+            
+            # Simulation Control Panel
+            html.Div([
+                html.Div([
+                    html.H3("🎛️ Simulation Configuration", className="panel-title"),
+                    
+                    # Simulation Type Selection
+                    html.Div([
+                        html.Label("Simulation Type:", className="control-label"),
+                        dcc.Dropdown(
+                            id='sim-type-dropdown',
+                            options=[
+                                {'label': '🔄 Matrix Propagation', 'value': 'matrix_propagation'},
+                                {'label': '🎲 Monte Carlo Analysis', 'value': 'monte_carlo'},
+                                {'label': '⚠️ Stress Testing', 'value': 'stress_test'},
+                                {'label': '📈 Scenario Analysis', 'value': 'scenario_analysis'},
+                                {'label': '🏦 Systemic Risk Assessment', 'value': 'systemic_risk'}
+                            ],
+                            value='matrix_propagation',
+                            className="control-dropdown"
+                        )
+                    ], className="control-group"),
+                    
+                    # Seed Ticker
+                    html.Div([
+                        html.Label("Seed Ticker:", className="control-label"),
+                        dcc.Dropdown(
+                            id='sim-seed-ticker-dropdown',
+                            options=self._get_initial_dropdown_options(),
+                            value=None,
+                            placeholder="🔍 Select seed ticker...",
+                            searchable=True,
+                            className="control-dropdown"
+                        )
+                    ], className="control-group"),
+                    
+                    # Advanced Parameters
+                    html.Div([
+                        html.Label("Shock Magnitude (%):", className="control-label"),
+                        dcc.Slider(
+                            id='sim-shock-magnitude-slider',
+                            min=-50, max=-1, step=1, value=-15,
+                            marks={i: f'{i}%' for i in range(-50, 0, 10)},
+                            tooltip={"placement": "bottom", "always_visible": True},
+                            className="control-slider"
+                        )
+                    ], className="control-group"),
+                    
+                    html.Div([
+                        html.Label("Damping Factor:", className="control-label"),
+                        dcc.Slider(
+                            id='sim-damping-factor-slider',
+                            min=0.1, max=0.99, step=0.05, value=0.85,
+                            marks={i/10: f'{i/10:.1f}' for i in range(1, 10, 2)},
+                            tooltip={"placement": "bottom", "always_visible": True},
+                            className="control-slider"
+                        )
+                    ], className="control-group"),
+                    
+                    # Monte Carlo Specific
+                    html.Div([
+                        html.Label("Monte Carlo Runs:", className="control-label"),
+                        dcc.Input(
+                            id='sim-monte-carlo-runs',
+                            type='number',
+                            value=1000,
+                            min=100, max=10000, step=100,
+                            className="control-input"
+                        )
+                    ], id="monte-carlo-controls", className="control-group", style={"display": "none"}),
+                    
+                    # Action Buttons
+                    html.Div([
+                        html.Button([
+                            html.I(className="fas fa-play"),
+                            html.Span(" Run Simulation", style={"margin-left": "8px"})
+                        ], id="run-advanced-sim-btn", className="btn-primary"),
+                        
+                        html.Button([
+                            html.I(className="fas fa-save"),
+                            html.Span(" Save Scenario", style={"margin-left": "8px"})
+                        ], id="save-scenario-btn", className="btn-secondary"),
+                        
+                        html.Button([
+                            html.I(className="fas fa-download"),
+                            html.Span(" Export Results", style={"margin-left": "8px"})
+                        ], id="export-results-btn", className="btn-secondary")
+                    ], className="button-group"),
+                    
+                    # Status and Progress
+                    html.Div(id="sim-status", className="status-indicator"),
+                    html.Div(id="sim-progress", className="progress-indicator")
+                    
+                ], className="control-panel", style={"flex": "0 0 350px"}),
+                
+                # Results Visualization Panel
+                html.Div([
+                    html.H3("📊 Simulation Results", className="panel-title"),
+                    
+                    # Results Tabs
+                    dcc.Tabs(id="sim-results-tabs", value='impact-waterfall', className="sim-tabs", children=[
+                        dcc.Tab(label='📊 Impact Waterfall', value='impact-waterfall', className="sim-tab"),
+                        dcc.Tab(label='📈 Distribution', value='distribution', className="sim-tab"),
+                        dcc.Tab(label='🌡️ Heatmap', value='heatmap', className="sim-tab"),
+                        dcc.Tab(label='🏢 Sector Analysis', value='sector-analysis', className="sim-tab"),
+                        dcc.Tab(label='🎲 Monte Carlo', value='monte-carlo', className="sim-tab"),
+                        dcc.Tab(label='📊 Risk Metrics', value='risk-metrics', className="sim-tab")
+                    ]),
+                    
+                    # Results Content
+                    html.Div(id="sim-results-content", className="results-panel")
+                    
+                ], className="results-panel", style={"flex": "1"})
+                
+            ], className="simulation-layout"),
+            
+            # Scenario Management Section
+            html.Div([
+                html.H3("📚 Scenario Library", className="panel-title"),
+                
+                html.Div([
+                    # Predefined Scenarios
+                    html.Div([
+                        html.H4("🏦 Predefined Scenarios"),
+                        html.Div([
+                            html.Button("Major Bank Crisis", id="scenario-bank-crisis", className="scenario-btn"),
+                            html.Button("Tech Sector Shock", id="scenario-tech-shock", className="scenario-btn"),
+                            html.Button("Insurance Crisis", id="scenario-insurance", className="scenario-btn"),
+                            html.Button("Payment Disruption", id="scenario-payment", className="scenario-btn"),
+                            html.Button("Market Correction", id="scenario-correction", className="scenario-btn"),
+                            html.Button("Systemic Assessment", id="scenario-systemic", className="scenario-btn")
+                        ], className="scenario-buttons")
+                    ], className="scenario-section"),
+                    
+                    # Custom Scenarios
+                    html.Div([
+                        html.H4("📝 Custom Scenarios"),
+                        html.Div(id="custom-scenarios-list"),
+                        html.Button([
+                            html.I(className="fas fa-plus"),
+                            html.Span(" Create New Scenario", style={"margin-left": "8px"})
+                        ], id="create-scenario-btn", className="btn-secondary")
+                    ], className="scenario-section")
+                ], className="scenario-content")
+                
+            ], className="scenario-library"),
+            
+            # Store components for simulation data
+            dcc.Store(id='advanced-sim-results-store'),
+            dcc.Store(id='scenario-config-store'),
+            dcc.Store(id='simulation-dashboard-store')
+            
         ])
     
     def _create_system_content(self):

@@ -83,28 +83,30 @@ This platform implements a multi-layer dependency network for stocks with:
 
 ## Usage
 
-### Enhanced Dashboard Mode
-Launch the comprehensive interactive financial services dashboard:
-```bash
-python main.py --mode dashboard --port 8054
-```
+### Enhanced Features
 
-Navigate to `http://localhost:8054` to access the platform.
+#### 🎛️ Interactive Dashboard
+- **Real-time Network Visualization**: Dynamic network graphs with 45 financial institutions
+- **Advanced Control Panel**: Intuitive parameter controls with preset scenarios  
+- **Multi-tab Interface**: Dashboard, 🧪 **Advanced Simulation**, Correlations, Sectors, Analytics, System monitoring
+- **Statistics Header**: Live platform metrics and data coverage information
+- **Responsive Design**: Modern Bootstrap 5.1.3 styling with Font Awesome icons
 
-**🎛️ Dashboard Features:**
-- **Real-time Network Visualization**: Interactive 45-stock dependency network with impact propagation
-- **Multi-Sector Analysis**: Financial services, technology, and cross-sector correlations
-- **Preset Scenarios**: One-click banking crisis, payment shock, and tech disruption simulations
-- **Advanced Analytics**: Correlation heatmaps, volatility tracking, and risk metrics
-- **Live Data Integration**: Real-time updates with 30-second refresh intervals
-- **Export Capabilities**: Download charts and data tables for reporting
+#### 🧪 **NEW: Advanced Simulation Laboratory**
+- **5 Simulation Types**: Matrix Propagation, Monte Carlo, Stress Testing, Scenario Analysis, Systemic Risk
+- **Interactive Configuration**: Real-time parameter adjustment with 6 predefined scenarios
+- **Advanced Visualizations**: Impact waterfalls, confidence intervals, risk heatmaps, sector analysis
+- **Scenario Management**: Save, load, and manage custom stress test scenarios
+- **Risk Analytics**: VaR/CVaR, concentration indices, diversification ratios
+- **Export Capabilities**: JSON, CSV, Excel export with comprehensive reporting
 
-**📊 Dashboard Sections:**
-1. **🎛️ Dashboard**: Main simulation interface with network visualization
-2. **🔗 Correlations**: Real-time correlation matrix analysis across all 45 stocks
-3. **🏦 Sectors**: Financial services subsector performance and risk analysis
-4. **📊 Analytics**: Advanced metrics including volatility, systemic risk, and centrality measures
-5. **⚙️ System**: Platform status, database statistics, and configuration details
+#### 📊 Comprehensive Analytics  
+- **Shock Propagation Simulation**: Matrix-based ripple effect modeling with enhanced convergence
+- **Network Analysis**: 3,942+ correlation relationships in Neo4j with centrality metrics
+- **Monte Carlo Simulations**: Uncertainty quantification with up to 10,000 runs
+- **Portfolio Impact Analysis**: Market cap weighted impact assessment
+- **Systemic Risk Assessment**: Institution-level importance ranking and risk scoring
+- **Real-time Updates**: 30-second refresh intervals for live data integration
 
 **💡 Quick Start Examples:**
 - Banking Crisis: Select JPM, set -5% shock, click "Run Simulation"
@@ -229,24 +231,113 @@ ripple_data/
 └── README.md
 ```
 
-## Quick Start Example
+## 🚀 Quick Start
+
+1. **Clone and Setup**:
+   ```bash
+   git clone <repository-url>
+   cd ripple_data
+   python -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
+
+2. **Configure Environment**:
+   ```bash
+   cp config/settings.py.template config/settings.py
+   # Edit database connections in config/settings.py
+   ```
+
+3. **Initialize Data**:
+   ```bash
+   python main.py --mode setup
+   python main.py --mode etl
+   ```
+
+4. **Launch Enhanced Dashboard**:
+   ```bash
+   python main.py --mode dashboard --port 8055
+   ```
+
+5. **Access Interface**: 
+   - Open [http://localhost:8055](http://localhost:8055)
+   - Navigate to the 🧪 **Simulation** tab for advanced features
+   - Try predefined scenarios: Bank Crisis, Tech Shock, Monte Carlo Analysis
+
+## 📱 Enhanced Dashboard Usage
+
+### Main Interface
+- **🎛️ Dashboard**: Primary simulation interface with network visualization
+- **🧪 Simulation**: **NEW** Advanced simulation laboratory with 5 simulation types
+- **🔗 Correlations**: Real-time correlation matrix and relationship analysis  
+- **🏦 Sectors**: Financial services sector breakdown and performance metrics
+- **📊 Analytics**: Advanced risk metrics and statistical analysis
+- **⚙️ System**: Platform status, database statistics, and configuration
+
+### Advanced Simulation Laboratory
+1. **Choose Simulation Type**: 
+   - Matrix Propagation (traditional)
+   - Monte Carlo (uncertainty analysis)
+   - Stress Testing (multiple shock levels)
+   - Scenario Analysis (cross-scenario comparison)
+   - Systemic Risk Assessment (comprehensive ranking)
+
+2. **Configure Parameters**: 
+   - Seed ticker from 45 financial institutions
+   - Shock magnitude (-50% to -1%)
+   - Damping factor (0.1 to 0.99)
+   - Monte Carlo runs (100 to 10,000)
+
+3. **Use Predefined Scenarios**: 6 expert-designed scenarios
+   - 🏦 Major Bank Crisis
+   - 💻 Technology Sector Shock  
+   - 🛡️ Insurance Sector Crisis
+   - 💳 Payment System Disruption
+   - 📉 Market Correction
+   - 🔍 Systemic Risk Assessment
+
+4. **Analyze Results**: Multiple visualization options
+   - 📊 Impact Waterfall Charts
+   - 📈 Statistical Distribution Analysis
+   - 🌡️ Risk Intensity Heatmaps
+   - 🏢 Sector Impact Breakdown
+   - 🎲 Monte Carlo Confidence Intervals
+   - 📊 Risk Metrics Dashboard
+
+5. **Export & Save**: Comprehensive data export and scenario management
+
+## API Usage Example
 
 ```python
+# Traditional Analytics
 from src.analytics import RipplePropagator
 
-# Initialize propagator
 propagator = RipplePropagator()
-
-# Run simulation
 results = propagator.simulate_shock_propagation(
-    seed_ticker='AAPL',
-    shock_magnitude=-0.05,  # 5% negative shock
-    tickers=['AAPL', 'MSFT', 'GOOGL'],
+    seed_ticker='JPM',
+    shock_magnitude=-0.05,
     damping_factor=0.85
 )
 
-print(results[['ticker', 'final_impact', 'cumulative_impact']].head())
+# Enhanced Simulation Engine
+from src.simulation import SimulationEngine, SimulationConfig, SimulationType
+
+engine = SimulationEngine()
+config = SimulationConfig(
+    simulation_type=SimulationType.MONTE_CARLO,
+    seed_ticker='JPM',
+    shock_magnitude=-0.15,
+    damping_factor=0.80,
+    monte_carlo_runs=2000
+)
+
+results = engine.run_simulation(config)
+print(f"Simulation: {len(results.results_df)} stocks analyzed")
+print(f"Execution time: {results.execution_time:.2f}s")
+print(f"Mean impact: {results.statistics['mean_impact']:.2%}")
 ```
+
+## Quick Start Example
 
 ## License
 

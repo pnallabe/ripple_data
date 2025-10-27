@@ -1,0 +1,31 @@
+{
+  "test_scenario": {
+    "name": "Test Scenario",
+    "description": "A test scenario for validation",
+    "seed_ticker": "JPM",
+    "shock_magnitude": -0.1,
+    "simulation_type": "matrix_propagation",
+    "damping_factor": 0.85,
+    "max_iterations": 100,
+    "include_tickers": null,
+    "exclude_tickers": null,
+    "metadata": null,
+    "created_date": "2025-10-27T15:28:13.505238"
+  },
+  "technology_sector_shock": {
+    "name": "Technology Sector Shock",
+    "description": "Major technology company crisis affecting digital infrastructure and innovation sectors",
+    "seed_ticker": "AAPL",
+    "shock_magnitude": -0.12,
+    "simulation_type": "stress_test",
+    "damping_factor": 0.75,
+    "max_iterations": 100,
+    "include_tickers": null,
+    "exclude_tickers": null,
+    "metadata": {
+      "category": "sector_crisis",
+      "sector": "technology"
+    },
+    "created_date": "2025-10-27T15:28:13.772643"
+  }
+}

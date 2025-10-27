@@ -83,13 +83,34 @@ This platform implements a multi-layer dependency network for stocks with:
 
 ## Usage
 
-### Dashboard Mode
-Launch the interactive web dashboard:
+### Enhanced Dashboard Mode
+Launch the comprehensive interactive financial services dashboard:
 ```bash
-python main.py --mode dashboard --port 8050
+python main.py --mode dashboard --port 8051
 ```
 
-Navigate to `http://localhost:8050` to access the platform.
+Navigate to `http://localhost:8051` to access the platform.
+
+**🎛️ Dashboard Features:**
+- **Real-time Network Visualization**: Interactive 45-stock dependency network with impact propagation
+- **Multi-Sector Analysis**: Financial services, technology, and cross-sector correlations
+- **Preset Scenarios**: One-click banking crisis, payment shock, and tech disruption simulations
+- **Advanced Analytics**: Correlation heatmaps, volatility tracking, and risk metrics
+- **Live Data Integration**: Real-time updates with 30-second refresh intervals
+- **Export Capabilities**: Download charts and data tables for reporting
+
+**📊 Dashboard Sections:**
+1. **🎛️ Dashboard**: Main simulation interface with network visualization
+2. **🔗 Correlations**: Real-time correlation matrix analysis across all 45 stocks
+3. **🏦 Sectors**: Financial services subsector performance and risk analysis
+4. **📊 Analytics**: Advanced metrics including volatility, systemic risk, and centrality measures
+5. **⚙️ System**: Platform status, database statistics, and configuration details
+
+**💡 Quick Start Examples:**
+- Banking Crisis: Select JPM, set -5% shock, click "Run Simulation"
+- Payment Disruption: Use "💳 Payment Shock" preset button
+- Cross-Sector Analysis: Compare technology vs financial correlations
+- Export Analysis: Use download buttons on charts and tables
 
 ### Data Ingestion
 Ingest market data for specific tickers:

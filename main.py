@@ -59,8 +59,14 @@ def main():
             # Store in database (simplified - would need proper ETL)
             if not price_data.empty:
                 try:
+                    # Map DataFrame columns to database schema
+                    db_data = price_data.copy()
+                    # Drop columns that don't exist in the database schema
+                    columns_to_drop = ['Dividends', 'Stock Splits']
+                    db_data = db_data.drop(columns=[col for col in columns_to_drop if col in db_data.columns])
+                    
                     # Insert into PostgreSQL
-                    pg_manager.insert_dataframe(price_data, 'prices')
+                    pg_manager.insert_dataframe(db_data, 'prices')
                     logger.info("Price data stored in PostgreSQL")
                 except Exception as e:
                     logger.warning(f"Could not store in PostgreSQL: {e}")

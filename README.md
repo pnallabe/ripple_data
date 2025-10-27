@@ -94,19 +94,46 @@ Navigate to `http://localhost:8050` to access the platform.
 ### Data Ingestion
 Ingest market data for specific tickers:
 ```bash
-python main.py --mode ingest --tickers AAPL MSFT GOOGL
+# Technology stocks
+python main.py --mode ingest --tickers AAPL MSFT GOOGL AMZN TSLA NVDA
+
+# Major banks
+python main.py --mode ingest --tickers JPM BAC WFC C GS MS
+
+# Payment processors
+python main.py --mode ingest --tickers V MA AXP
+
+# Insurance companies
+python main.py --mode ingest --tickers AIG MET PRU AFL
+
+# Asset management
+python main.py --mode ingest --tickers BLK SCHW BRK-B
 ```
 
 ### Correlation Analysis
-Compute correlations between stocks:
+Compute correlations between financial services stocks:
 ```bash
-python main.py --mode analyze --tickers AAPL MSFT GOOGL AMZN TSLA
+# Banking sector analysis
+python main.py --mode analyze --tickers JPM BAC WFC C GS MS
+
+# Payment systems correlation
+python main.py --mode analyze --tickers V MA AXP
+
+# Cross-sector analysis
+python main.py --mode analyze --tickers JPM V AAPL BLK AIG
 ```
 
 ### Ripple Simulation
-Simulate shock propagation:
+Simulate shock propagation across financial networks:
 ```bash
-python main.py --mode simulate --seed-ticker AAPL --shock -0.05 --tickers AAPL MSFT GOOGL
+# Banking crisis simulation
+python main.py --mode simulate --seed-ticker JPM --shock -0.05
+
+# Payment system disruption
+python main.py --mode simulate --seed-ticker V --shock -0.03
+
+# Market-wide technology shock
+python main.py --mode simulate --seed-ticker AAPL --shock -0.08
 ```
 
 ### ETL Pipeline
@@ -115,11 +142,48 @@ Run the complete data pipeline:
 python scripts/etl_pipeline.py
 ```
 
+### Financial Services Pipeline Test
+Test the comprehensive financial services data pipeline:
+```bash
+python test_financial_pipeline.py
+```
+
 ### Run Tests
 Execute the test suite:
 ```bash
 python tests/test_platform.py
 ```
+
+## Current Database Status
+
+Our platform now includes comprehensive financial services data:
+
+**📊 Database Statistics:**
+- **Total Stocks**: 45 tickers across multiple sectors  
+- **Total Records**: 11,205 price records
+- **Data Coverage**: 1 year (Oct 2024 - Oct 2025)
+
+**🏦 Financial Services Coverage (39 stocks):**
+- **Major Banks**: JPM, BAC, WFC, C, GS, MS, USB, TFC, PNC, COF
+- **Regional Banks**: RF, KEY, FITB, CFG, STT, ZION, NTRS, BK, BBT, SYF  
+- **Payment Systems**: V, MA, AXP
+- **Asset Management**: BLK, SCHW, BRK-B
+- **Insurance**: AIG, MET, PRU, AFL, MMC, AON, ALL, TRV, PGR, CB
+- **Exchanges & Data**: CME, ICE, SPGI
+
+**💻 Technology Stocks (6 stocks):**
+- AAPL, MSFT, GOOGL, AMZN, TSLA, NVDA
+
+**🔗 Correlation Analysis:**
+- 3,942+ correlation relationships computed
+- Rolling 30-day correlation windows
+- Cross-sector dependency mapping
+
+**🌊 Ripple Simulation Capabilities:**
+- Multi-sector shock propagation modeling
+- Banking system stress testing
+- Payment network disruption analysis
+- Technology sector impact assessment
 
 ## Project Structure
 

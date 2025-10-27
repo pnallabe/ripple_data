@@ -38,12 +38,16 @@ class PostgreSQLManager:
             )
             logger.info("PostgreSQL connection pool initialized")
         except Exception as e:
-            logger.error(f"Failed to initialize PostgreSQL connection pool: {e}")
-            raise
+            logger.warning(f"Failed to initialize PostgreSQL connection pool: {e}")
+            logger.warning("PostgreSQL operations will not be available")
+            self.connection_pool = None
     
     @contextmanager
     def get_connection(self):
         """Get a connection from the pool."""
+        if not self.connection_pool:
+            raise RuntimeError("PostgreSQL connection pool not initialized")
+        
         conn = None
         try:
             conn = self.connection_pool.getconn()
@@ -110,12 +114,16 @@ class Neo4jManager:
                 session.run("RETURN 1")
             logger.info("Neo4j driver initialized")
         except Exception as e:
-            logger.error(f"Failed to initialize Neo4j driver: {e}")
-            raise
+            logger.warning(f"Failed to initialize Neo4j driver: {e}")
+            logger.warning("Neo4j operations will not be available")
+            self.driver = None
     
     @contextmanager
     def get_session(self, database: Optional[str] = None):
         """Get a Neo4j session."""
+        if not self.driver:
+            raise RuntimeError("Neo4j driver not initialized")
+        
         session = None
         try:
             session = self.driver.session(database=database or config.database.neo4j_database)
@@ -226,8 +234,9 @@ class RedisManager:
             self.client.ping()
             logger.info("Redis client initialized")
         except Exception as e:
-            logger.error(f"Failed to initialize Redis client: {e}")
-            raise
+            logger.warning(f"Failed to initialize Redis client: {e}")
+            logger.warning("Redis caching will not be available")
+            self.client = None
     
     def get(self, key: str) -> Optional[str]:
         """Get value by key."""

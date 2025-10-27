@@ -1,7 +1,8 @@
 """Configuration management for the Stock Ripple Platform."""
 
 from typing import Optional, Dict, Any
-from pydantic import BaseSettings, Field
+from pydantic import Field
+from pydantic_settings import BaseSettings
 import os
 from pathlib import Path
 

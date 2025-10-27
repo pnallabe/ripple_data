@@ -425,8 +425,9 @@ class RippleDashboard:
         return fig
     
     def run_server(self, debug: bool = False, port: int = 8050):
-        """Run the Dash server."""
-        self.app.run_server(debug=debug, port=port)
+        """Start the dashboard server"""
+        logger.info(f"Dashboard running on http://localhost:{port}")
+        self.app.run(debug=debug, port=port)
 
 
 # CSS styling

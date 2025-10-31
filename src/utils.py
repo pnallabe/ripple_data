@@ -4,7 +4,7 @@ import logging
 import logging.config
 import os
 import sys
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Union
 import json
 from datetime import datetime, date
 import pandas as pd

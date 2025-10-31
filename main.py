@@ -58,9 +58,22 @@ def main():
             
             # Store in database (simplified - would need proper ETL)
             if not price_data.empty:
-                # Insert into PostgreSQL
-                pg_manager.insert_dataframe(price_data, 'prices')
-                logger.info("Price data stored in PostgreSQL")
+                try:
+                    # Map DataFrame columns to database schema
+                    db_data = price_data.copy()
+                    # Drop columns that don't exist in the database schema
+                    columns_to_drop = ['Dividends', 'Stock Splits']
+                    db_data = db_data.drop(columns=[col for col in columns_to_drop if col in db_data.columns])
+                    
+                    # Insert into PostgreSQL
+                    pg_manager.insert_dataframe(db_data, 'prices')
+                    logger.info("Price data stored in PostgreSQL")
+                except Exception as e:
+                    logger.warning(f"Could not store in PostgreSQL: {e}")
+                    logger.info("Data ingestion completed but not stored (database not available)")
+                    # Show sample of ingested data
+                    print("\nSample of ingested data:")
+                    print(price_data.head(10).to_string(index=False))
             
         elif args.mode == "analyze":
             # Run correlation analysis

@@ -38,12 +38,16 @@ class PostgreSQLManager:
             )
             logger.info("PostgreSQL connection pool initialized")
         except Exception as e:
-            logger.error(f"Failed to initialize PostgreSQL connection pool: {e}")
-            raise
+            logger.warning(f"Failed to initialize PostgreSQL connection pool: {e}")
+            logger.warning("PostgreSQL operations will not be available")
+            self.connection_pool = None
     
     @contextmanager
     def get_connection(self):
         """Get a connection from the pool."""
+        if not self.connection_pool:
+            raise RuntimeError("PostgreSQL connection pool not initialized")
+        
         conn = None
         try:
             conn = self.connection_pool.getconn()
@@ -85,10 +89,34 @@ class PostgreSQLManager:
         with self.get_connection() as conn:
             return pd.read_sql_query(query, conn, params=params)
     
-    def insert_dataframe(self, df: pd.DataFrame, table_name: str, if_exists: str = 'append') -> int:
-        """Insert DataFrame into table."""
-        with self.get_connection() as conn:
-            return df.to_sql(table_name, conn, if_exists=if_exists, index=False, method='multi')
+    def insert_dataframe(self, df: pd.DataFrame, table_name: str, if_exists: str = 'append', batch_size: int = 1000) -> int:
+        """Insert DataFrame into PostgreSQL table in batches."""
+        if df.empty:
+            logger.warning("Attempting to insert empty DataFrame")
+            return 0
+            
+        # Use SQLAlchemy engine for pandas compatibility
+        from sqlalchemy import create_engine
+        
+        engine_url = config.postgres_url
+        engine = create_engine(engine_url)
+        
+        try:
+            total_rows = 0
+            # Insert in batches to avoid parameter limits
+            for i in range(0, len(df), batch_size):
+                batch_df = df.iloc[i:i+batch_size]
+                rows_inserted = batch_df.to_sql(table_name, engine, if_exists=if_exists, index=False, method='multi')
+                total_rows += len(batch_df)
+                logger.info(f"Inserted batch {i//batch_size + 1}: {len(batch_df)} rows")
+                # Only use 'append' for subsequent batches
+                if_exists = 'append'
+            
+            logger.info(f"Successfully inserted {total_rows} total rows into {table_name}")
+            return total_rows
+        except Exception as e:
+            logger.error(f"Failed to insert DataFrame: {e}")
+            raise
 
 
 class Neo4jManager:
@@ -110,12 +138,16 @@ class Neo4jManager:
                 session.run("RETURN 1")
             logger.info("Neo4j driver initialized")
         except Exception as e:
-            logger.error(f"Failed to initialize Neo4j driver: {e}")
-            raise
+            logger.warning(f"Failed to initialize Neo4j driver: {e}")
+            logger.warning("Neo4j operations will not be available")
+            self.driver = None
     
     @contextmanager
     def get_session(self, database: Optional[str] = None):
         """Get a Neo4j session."""
+        if not self.driver:
+            raise RuntimeError("Neo4j driver not initialized")
+        
         session = None
         try:
             session = self.driver.session(database=database or config.database.neo4j_database)
@@ -226,8 +258,9 @@ class RedisManager:
             self.client.ping()
             logger.info("Redis client initialized")
         except Exception as e:
-            logger.error(f"Failed to initialize Redis client: {e}")
-            raise
+            logger.warning(f"Failed to initialize Redis client: {e}")
+            logger.warning("Redis caching will not be available")
+            self.client = None
     
     def get(self, key: str) -> Optional[str]:
         """Get value by key."""

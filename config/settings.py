@@ -1,7 +1,8 @@
 """Configuration management for the Stock Ripple Platform."""
 
 from typing import Optional, Dict, Any
-from pydantic import BaseSettings, Field
+from pydantic import Field
+from pydantic_settings import BaseSettings
 import os
 from pathlib import Path
 
@@ -30,6 +31,7 @@ class DatabaseConfig(BaseSettings):
     
     class Config:
         env_file = ".env"
+        extra = "ignore"  # Ignore extra fields from .env
 
 
 class APIConfig(BaseSettings):
@@ -47,6 +49,7 @@ class APIConfig(BaseSettings):
     
     class Config:
         env_file = ".env"
+        extra = "ignore"  # Ignore extra fields from .env
 
 
 class AnalyticsConfig(BaseSettings):
@@ -68,6 +71,7 @@ class AnalyticsConfig(BaseSettings):
     
     class Config:
         env_file = ".env"
+        extra = "ignore"  # Ignore extra fields from .env
 
 
 class AppConfig(BaseSettings):
@@ -88,6 +92,7 @@ class AppConfig(BaseSettings):
     
     class Config:
         env_file = ".env"
+        extra = "ignore"  # Ignore extra fields from .env
 
 
 class Config:
